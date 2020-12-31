@@ -32,7 +32,8 @@ func main() {
 }
 
 func times() {
-	t2 := time.Date(2020, time.December, 01, 8, 0, 0, 0, time.Local)
+	t := daysAgo(30)
+	t2 := time.Date(t.Year(), t.Month(), t.Day(), 8, 0, 0, 0, time.Local)
 	fmt.Printf("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1d&startTime=%v", t2.UnixNano()/1e6)
 }
 
@@ -45,17 +46,20 @@ func buyOrSell() {
 	}
 
 	yesterdayPrice := stringToFloat64(arr[lenData-2][4])
-	NineteendaysAgoPrice := stringToFloat64(arr[lenData-20][4])
-
 	yesterdayEMAPrice := ema(arr[:lenData-1], 18)
+	MAPrice := ma(arr[:lenData-1], 18)
+	lenMAPrice := len(MAPrice)
+	fmt.Println(MAPrice)
 
-	fmt.Printf("昨天   %v 收盘价： %v\n", daysAgo(1).Format("2006-01-02"), yesterdayPrice)
-	fmt.Printf("19天前 %v 收盘价： %v\n", daysAgo(19).Format("2006-01-02"), NineteendaysAgoPrice)
-	fmt.Printf("昨天EMA价： %v\n", yesterdayEMAPrice)
+	fmt.Printf("昨天 %v 收盘价\t： %v\n", daysAgo(1).Format("2006-01-02"), yesterdayPrice)
+	fmt.Printf("昨天 %v EMA价\t： %v\n\n", daysAgo(1).Format("2006-01-02"), yesterdayEMAPrice)
+	fmt.Printf("昨天 %v MA价\t： %v\n", daysAgo(1).Format("2006-01-02"), MAPrice[lenMAPrice-1])
+	fmt.Printf("前天 %v MA价\t： %v\n", daysAgo(2).Format("2006-01-02"), MAPrice[lenMAPrice-2])
+
 	switch {
-	case yesterdayPrice > NineteendaysAgoPrice && yesterdayPrice > yesterdayEMAPrice:
+	case MAPrice[lenMAPrice-1] > MAPrice[lenMAPrice-2] && yesterdayPrice > yesterdayEMAPrice:
 		fmt.Println("继续持仓或者买入")
-	case yesterdayPrice < NineteendaysAgoPrice && yesterdayPrice < yesterdayEMAPrice:
+	case MAPrice[lenMAPrice-1] < MAPrice[lenMAPrice-2] && yesterdayPrice < yesterdayEMAPrice:
 		fmt.Println("卖出")
 	default:
 		fmt.Println("价格处于中间位置，待确定")
@@ -72,6 +76,18 @@ func readData() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func ma(a [][]interface{}, inTimePeriod int) []float64 {
+	lenData := len(a)
+	s := make([]float64, lenData)
+
+	for i, v := range a {
+		s[i] = stringToFloat64(v[4])
+	}
+
+	outReal := talib.Ma(s, inTimePeriod, 0)
+	return outReal
 }
 
 func ema(a [][]interface{}, inTimePeriod int) float64 {
